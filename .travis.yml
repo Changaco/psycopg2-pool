@@ -1,0 +1,20 @@
+language: python
+python:
+  - 2.7
+  - 3.5
+  - 3.6
+  - 3.7
+services:
+  - postgresql
+install:
+  - pip install tox-travis
+before_script:
+  - psql -U postgres -c 'CREATE DATABASE "test";'
+script:
+  - tox
+branches:
+  only:
+    - master
+notifications:
+  email: false
+  irc: false
