@@ -1,2 +1,1 @@
-# psycopg2-pool
-Proper pooling of psycopg2 connections
+See the documentation at <https://psycopg2-pool.readthedocs.io/>.
