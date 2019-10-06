@@ -189,7 +189,7 @@ class ThreadSafeConnectionPool(ConnectionPool):
     object to ensure that its methods are thread safe.
     """
 
-    __slots__ = ()
+    __slots__ = ('lock',)
 
     def __init__(self, **kwargs):
         import threading
