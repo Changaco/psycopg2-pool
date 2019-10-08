@@ -54,7 +54,7 @@ class ConnectionPool(object):
 
     .. attribute:: idle_connections
 
-        The pool of unused connections, first in first out.
+        The pool of unused connections, last in first out.
         Type: :class:`collections.deque`.
 
     .. attribute:: return_times
@@ -113,7 +113,7 @@ class ConnectionPool(object):
         while True:
             try:
                 # Attempt to take an idle connection from the pool.
-                conn = self.idle_connections.popleft()
+                conn = self.idle_connections.pop()
             except IndexError:
                 # We don't have any idle connection available, open a new one.
                 if len(self.connections_in_use) >= self.maxconn:
@@ -143,6 +143,7 @@ class ConnectionPool(object):
         self.connections_in_use.discard(conn)
 
         # Determine if the connection should be kept or discarded.
+        current_time = uptime()
         if self.idle_timeout == 0 and len(self.idle_connections) >= self.minconn:
             conn.close()
         else:
@@ -154,8 +155,41 @@ class ConnectionPool(object):
                 if status != _ext.TRANSACTION_STATUS_IDLE:
                     # The connection is still in a transaction, roll it back.
                     conn.rollback()
-                self.return_times[conn] = uptime()
+                self.return_times[conn] = current_time
                 self.idle_connections.append(conn)
+
+        # Clean up the idle connections.
+        if self.idle_timeout:
+            # We cap the number of iterations to ensure that we don't end up in
+            # an infinite loop.
+            for i in range(len(self.idle_connections)):
+                try:
+                    conn = self.idle_connections[0]
+                except IndexError:
+                    break
+                return_time = self.return_times.get(conn)
+                if return_time is None:
+                    # The connection's return time is missing, give up.
+                    break
+                if return_time < (current_time - self.idle_timeout):
+                    # This connection has been idle too long, attempt to drop it.
+                    try:
+                        popped_conn = self.idle_connections.popleft()
+                    except IndexError:
+                        # Another thread removed this connection from the queue.
+                        continue
+                    if popped_conn == conn:
+                        # Okay, we can close and discard this connection.
+                        self.return_times.pop(conn, None)
+                        conn.close()
+                    else:
+                        # We got a different connection, put it back.
+                        self.idle_connections.appendleft(popped_conn)
+                    continue
+                else:
+                    # The leftmost connection isn't too old, so we can assume
+                    # that the other ones aren't either.
+                    break
 
         # Open new connections if we've dropped below minconn.
         while (len(self.idle_connections) + len(self.connections_in_use)) < self.minconn:
@@ -167,7 +201,7 @@ class ConnectionPool(object):
 
         This method could be useful if you have periods of high activity that
         result in many connections being opened, followed by prolonged periods
-        with zero activity (no connections checked out of the pool at all),
+        with zero activity (no calls to :meth:`getconn` or :meth:`putconn`),
         *and* you care about closing those extraneous connections during the
         inactivity period. It's up to you to call this method in that case.
 

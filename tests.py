@@ -172,6 +172,34 @@ class PoolTests(TestCase):
 
         assert total_cons_after_get == total_cons
 
+    def test_extraneous_connections_are_discarded(self):
+        pool = ConnectionPool(minconn=0, idle_timeout=120)
+        # Get multiple connections then put them all back
+        conns = [pool.getconn() for i in range(3)]
+        for conn in conns:
+            pool.putconn(conn)
+        # Simulate 1 minute passing
+        for conn in conns:
+            pool.return_times[conn] -= 60
+        # Check out one connection multiple times, we should always get the same one
+        last_conn = conns[-1]
+        for i in range(len(conns)):
+            conn = pool.getconn()
+            assert conn is last_conn
+            pool.putconn(conn)
+        # Simulate another minute passing
+        for conn in conns:
+            pool.return_times[conn] -= 60
+        # Get a connection then return it, the other connections should be
+        # discarded by `putconn` because they're too old now
+        conn = pool.getconn()
+        assert conn is last_conn
+        assert list(pool.idle_connections) == conns[:2]
+        assert set(pool.return_times) == set(conns[:2])
+        pool.putconn(conn)
+        assert list(pool.idle_connections) == [conn]
+        assert set(pool.return_times) == set([conn])
+
     def test_clear(self):
         pool = ConnectionPool(0, 10)
         conn1 = pool.getconn()
