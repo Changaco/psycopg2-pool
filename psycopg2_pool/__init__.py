@@ -37,7 +37,7 @@ class ConnectionPool(object):
 
         How many seconds to keep an idle connection before closing it. The
         default value causes idle connections to be closed after 10 minutes
-        (approximately, it depends on :meth:`getconn` being called).
+        (approximately, it depends on :meth:`putconn` being called).
 
     .. attribute:: connect_kwargs
 
