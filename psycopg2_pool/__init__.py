@@ -92,7 +92,7 @@ class ConnectionPool(object):
     def _connect(self, for_immediate_use=False):
         """Open a new connection.
         """
-        conn = psycopg2._connect(**self.connect_kwargs)
+        conn = psycopg2.connect(**self.connect_kwargs)
         if for_immediate_use:
             self.connections_in_use.add(conn)
         else:
