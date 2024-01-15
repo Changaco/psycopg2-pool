@@ -2,14 +2,8 @@
 requires separate TCP connections for concurrent sessions.
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from collections import deque
-try:
-    from time import perf_counter as uptime
-except ImportError:
-    # For Python < 3.3
-    from time import clock as uptime
+from time import perf_counter as uptime
 from weakref import WeakSet
 
 import psycopg2
@@ -20,7 +14,7 @@ class PoolError(Exception):
     pass
 
 
-class ConnectionPool(object):
+class ConnectionPool:
     """A pool of :class:`psycopg2:connection` objects.
 
     .. attribute:: minconn
@@ -227,20 +221,20 @@ class ThreadSafeConnectionPool(ConnectionPool):
 
     def __init__(self, **kwargs):
         import threading
-        super(ThreadSafeConnectionPool, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.lock = threading.RLock()
 
     def getconn(self):
         """See :meth:`ConnectionPool.getconn`."""
         with self.lock:
-            return super(ThreadSafeConnectionPool, self).getconn()
+            return super().getconn()
 
     def putconn(self, conn):
         """See :meth:`ConnectionPool.putconn`."""
         with self.lock:
-            return super(ThreadSafeConnectionPool, self).putconn(conn)
+            return super().putconn(conn)
 
     def clear(self):
         """See :meth:`ConnectionPool.clear`."""
         with self.lock:
-            return super(ThreadSafeConnectionPool, self).clear()
+            return super().clear()
